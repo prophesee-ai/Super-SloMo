@@ -22,7 +22,7 @@ def convert_to_gray(img):
     return img
 
 
-def draw_arrows(img, flow, step=16, flow_unit="relative", threshold_px=1, convert_img_to_gray=True):
+def draw_arrows(img, flow, step=16, flow_unit="relative",  convert_img_to_gray=True):
     """
     Visualizes Flow, by drawing hsv-colored arrows on top of the input image.
 
@@ -32,7 +32,6 @@ def draw_arrows(img, flow, step=16, flow_unit="relative", threshold_px=1, conver
         step (int): Draws every `step` arrow. use to increase clarity, especially with fast motions.
         flow_unit (string): either in "relative" mode, in which case the unit is width / 2 pixels
             (respectively height / 2), or in absolute "pixels" mode in which case unit is simply in pixels.
-        threshold_px (float): doesn't display arrows shorter the *threshold_px* pixels.
     """
     assert flow_unit in ("relative", "pixels"), "flow_unit should be relative or pixels"
     flow_y = flow[1, ::step, ::step]
@@ -58,7 +57,6 @@ def draw_arrows(img, flow, step=16, flow_unit="relative", threshold_px=1, conver
     dx = (flow_x * width / 2) if flow_unit == "relative" else flow_x
     dy = (flow_y * height / 2) if flow_unit == "relative" else flow_y
 
-    threshold = (dx**2 + dy**2) > threshold_px
     # computes arrows ending point
     p2x = ((x_array + dx) * ratio).astype("int")
     p2y = ((y_array + dy) * ratio).astype("int")
@@ -71,8 +69,7 @@ def draw_arrows(img, flow, step=16, flow_unit="relative", threshold_px=1, conver
         for j in range(0, width // step):
 
             color_list = rgbImg[i, j, :].tolist()
-            if threshold[i, j]:
-                img = cv2.arrowedLine(img, (x_array[i, j], y_array[i, j]), (p2x[i, j], p2y[i, j]), color_list, 1)
+            img = cv2.arrowedLine(img, (x_array[i, j], y_array[i, j]), (p2x[i, j], p2y[i, j]), color_list, 1)
 
     return img
 

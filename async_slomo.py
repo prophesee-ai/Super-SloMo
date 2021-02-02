@@ -34,7 +34,7 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
     """
     def viz_flow(frame, flow):
         flow1 = flow.data.cpu().numpy()
-        frame0 = draw_arrows(frame, flow1[0], step=4, flow_unit="pixels")
+        frame0 = draw_arrows(frame, flow1[0], step=16, flow_unit="pixels")
         return frame0
     color = (0, 0, 255)
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -56,7 +56,7 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
         vizu = make_grid(vizu, nrow=2).permute(1, 2, 0).contiguous().numpy()
 
         cv2.imshow("result", vizu)
-        key = cv2.waitKey(0)
+        key = cv2.waitKey(5)
         if key == 27:
             return 0
     return 1
@@ -126,9 +126,6 @@ def main_video(
 
     if out_name:
         video_writer = FFmpegWriter(out_name)
-
-    if viz:
-        cv2.namedWindow("result", cv2.WINDOW_NORMAL)
 
     last_ts = 0
     for i, frame in enumerate(tqdm(stream)):
