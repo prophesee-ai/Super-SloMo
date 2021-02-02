@@ -4,13 +4,11 @@ script to upsample your videos
 from __future__ import absolute_import
 
 import os
-import random
-
+import urllib
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-import math
 import cv2
 from skvideo.io import FFmpegWriter
 
@@ -64,7 +62,7 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
     return 1
 
 
-def slowmo_video(
+def main_video(
     video_filename,
     out_name="",
     video_fps=240,
@@ -76,6 +74,7 @@ def slowmo_video(
     lambda_flow=0.5,
     cuda=True,
     viz=False,
+    checkpoint='SuperSloMo.ckpt'
 ):
     """SlowMo Interpolates video
 
@@ -94,13 +93,8 @@ def slowmo_video(
         factor to compute the actual number of frames.
         cuda: use cuda
         viz: visualize the flow and interpolated frames
+        checkpoint: if not provided will download it
     """
-
-    if os.path.isdir(video_filename):
-        filenames = grab_videos(video_filename)
-        random.shuffle(filenames)
-        video_filename = filenames[0]
-
     print("Video filename: ", video_filename)
     print("Out Video: ", out_name)
 
@@ -114,8 +108,7 @@ def slowmo_video(
         rgb=True)
     height, width = stream.height, stream.width
 
-    filename = 'model_zoo/SuperSloMo.ckpt'
-    slomo = SlowMoWarp(height, width, filename, lambda_flow=lambda_flow, cuda=cuda)
+    slomo = SlowMoWarp(height, width, checkpoint, lambda_flow=lambda_flow, cuda=cuda)
 
     fps = video_fps
 
@@ -180,32 +173,38 @@ def slowmo_video(
         timestamps_out = np.concatenate(timestamps)
         np.save(os.path.splitext(out_name)[0] + "_ts.npy", timestamps_out)
 
+def main(
+    input_path,
+    output_path,
+    video_fps=240,
+    height=-1,
+    width=-1,
+    sf=-1,
+    seek_frame=0,
+    max_frames=-1,
+    lambda_flow=0.5,
+    cuda=True,
+    viz=False,
+    checkpoint='SuperSloMo.ckpt'):
+    """Same Documentation, just with additional input directory"""
+    main_fun = lambda x,y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz, checkpoint)
+    wsf = str(sf) if sf > 0 else "asynchronous"
+    print('Interpolation frame_rate factor: ', wsf)
+    if os.path.isdir(input_path):
+        assert os.path.isdir(output_path)
+        filenames = grab_videos(input_path)
+        for item in filenames:
+            otem, _ = os.path.splitext(os.path.basename(item))
+            otem = os.path.join(odir, otem + ext)
+            if os.path.exists(otem):
+                continue
+            main_fun(item, otem)
+    else:
+        main_fun(input_path, output_path)
 
-def rewrite_folder(idir, odir, fps=240, height=480, width=640, sf=-1, max_frames=100, ext='.mp4', viz=False):
-    """Applies SlowMotion on a directory of videos
 
-    Args:
-        idir: input directory
-        odir: output directory
-        fps: input frame-rate
-        height: desired height
-        width: desired width
-        sf: scale-factor
-        max_frames: maximum number of frames to interpolate
-        ext: look for files with this extension
-        viz: visualize the Result
-    """
-    wsf = str(sf) if sf > 0 else "async"
-    print('frame_rate factor: ', wsf)
-    filenames = grab_videos(idir)
-    for item in filenames:
-        otem, _ = os.path.splitext(os.path.basename(item))
-        otem = os.path.join(odir, otem + ext)
-        if os.path.exists(otem):
-            continue
-        slowmo_video(item, otem, fps, height, width, sf, viz=viz, max_frames=max_frames)
 
 
 if __name__ == "__main__":
     import fire
-    fire.Fire()
+    fire.Fire(main)

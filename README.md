@@ -9,11 +9,11 @@ This addon allows to create a video with motion-dependant interpolation. This me
 
 You can run the main tool for one video:
 ```bash
-python async_slomo.py slowmo_video path\to\video.mp4 path\to\output.mp4 --sf -1 --checkpoint path\to\checkpoint.ckpt --video_fps M --lambda_flow 0.5 --viz 1
+python async_slomo.py path\to\video.mp4 path\to\output.mp4 --sf -1 --checkpoint path\to\checkpoint.ckpt --video_fps M --lambda_flow 0.5 --viz 1
 ```
 Or for an entire Folder:
 ```bash
-python async_slomo.py rewrite_folder input_path\to\ output_path\to\ --sf -1 --checkpoint path\to\checkpoint.ckpt --video_fps M
+python async_slomo.py input_path\to\ output_path\to\ --sf -1 --checkpoint path\to\checkpoint.ckpt --video_fps M
 ```
 
 After running the script, you should see 2 files per video:
