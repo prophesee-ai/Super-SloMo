@@ -1,0 +1,6 @@
+numpy>=1.19.1
+opencv-python>=4.2.0.34
+torch>=1.6
+torchvision>=0.8.2
+scikit-video
+tqdm

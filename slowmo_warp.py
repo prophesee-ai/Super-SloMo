@@ -1,9 +1,3 @@
-# Copyright (c) Prophesee S.A. - All Rights Reserved
-#
-# Subject to Prophesee Metavision Licensing Terms and Conditions ("License T&C's").
-# You may not use this file except in compliance with these License T&C's.
-# A copy of these License T&C's is located at docs.prophesee.ai/licensing and in the "LICENSE" file accompanying
-# this file.
 """SuperSlowMo
 Code is edited from https://github.com/avinashpaliwal/Super-SloMo
 

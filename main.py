@@ -1,9 +1,3 @@
-# Copyright (c) Prophesee S.A. - All Rights Reserved
-#
-# Subject to Prophesee Metavision Licensing Terms and Conditions ("License T&C's").
-# You may not use this file except in compliance with these License T&C's.
-# A copy of these License T&C's is located at docs.prophesee.ai/licensing and in the "LICENSE" file accompanying
-# this file.
 """
 script to upsample your videos
 """
@@ -124,11 +118,6 @@ def slowmo_video(
     slomo = SlowMoWarp(height, width, filename, lambda_flow=lambda_flow, cuda=cuda)
 
     fps = video_fps
-
-    if sf > 0:
-        fps_out = fps * sf
-    else:
-        fps_out = fps
 
     delta_t = 1.0 / fps
     delta_t_us = delta_t * 1e6
