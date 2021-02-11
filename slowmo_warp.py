@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from metavision_ml.super_slowmo import model
+import model
 
 
 class SlowMoWarp:
