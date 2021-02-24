@@ -11,11 +11,11 @@ import torch.nn.functional as F
 import numpy as np
 import cv2
 from skvideo.io import FFmpegWriter
-
-from video_stream import VideoStream
-from slowmo_warp import SlowMoWarp
-from viz import draw_arrows
-from utils import grab_videos
+from PIL import Image
+from slowmo.video_stream import VideoStream
+from slowmo.slowmo_warp import SlowMoWarp
+from slowmo.viz import draw_arrows
+from slowmo.utils import grab_videos
 
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -23,7 +23,6 @@ from tqdm import tqdm
 
 def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
     """SlowMo visualization
-
     Args:
         last_frame: prev rgb frame (h,w,3)
         current_frame: current rgb frame (h,w,3)
@@ -77,11 +76,9 @@ def main_video(
     checkpoint='SuperSloMo.ckpt'
 ):
     """SlowMo Interpolates video
-
     It produces another .mp4 video + .npy file for timestamps.
-
     Args:
-        video_filename: file path
+        video_filename: file path or list of ordered frame images
         out_name: out file path
         video_fps: video frame rate
         height: desired height
@@ -95,18 +92,26 @@ def main_video(
         viz: visualize the flow and interpolated frames
         checkpoint: if not provided will download it
     """
-    print("Video filename: ", video_filename)
+
     print("Out Video: ", out_name)
 
-    stream = VideoStream(
-        video_filename,
-        height,
-        width,
-        seek_frame=seek_frame,
-        max_frames=max_frames,
-        random_start=False,
-        rgb=True)
-    height, width = stream.height, stream.width
+    if isinstance(video_filename,list):
+        # video_filename is a list of images
+        print("First image of the list: ", video_filename[0])
+        im = Image.open(video_filename[0])
+        width, height = im.size
+        stream = video_filename
+    else:
+        print("Video filename: ", video_filename)
+        stream = VideoStream(
+            video_filename,
+            height,
+            width,
+            seek_frame=seek_frame,
+            max_frames=max_frames,
+            random_start=False,
+            rgb=True)
+        height, width = stream.height, stream.width
 
     slomo = SlowMoWarp(height, width, checkpoint, lambda_flow=lambda_flow, cuda=cuda)
 
@@ -129,6 +134,10 @@ def main_video(
 
     last_ts = 0
     for i, frame in enumerate(tqdm(stream)):
+        if isinstance(frame,str):
+            frame = cv2.imread(frame)
+            assert frame.shape[2]==3
+
         ts = i * delta_t
 
         if last_frame is not None:
