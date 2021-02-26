@@ -135,7 +135,7 @@ def main_video(
     last_ts = 0
     for i, frame in enumerate(tqdm(stream)):
         if isinstance(frame,str):
-            frame = cv2.imread(frame)
+            frame = cv2.imread(frame)[:,:,::-1]
             assert frame.shape[2]==3
 
         ts = i * delta_t
@@ -158,7 +158,7 @@ def main_video(
 
             if out_name:
                 for item in interp:
-                    video_writer.writeFrame(item[..., ::-1])
+                    video_writer.writeFrame(item)
 
             timestamps.append(interp_ts)
 
