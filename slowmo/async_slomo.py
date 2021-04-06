@@ -31,10 +31,12 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
         interp: last_frame + interpolated frames
         fps: current frame-rate
     """
+
     def viz_flow(frame, flow):
         flow1 = flow.data.cpu().numpy()
         frame0 = draw_arrows(frame, flow1[0], step=16, flow_unit="pixels")
         return frame0
+
     color = (0, 0, 255)
     font = cv2.FONT_HERSHEY_SIMPLEX
     height, width = interp[0].shape[:2]
@@ -46,7 +48,7 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
         img = item.copy()
 
         img = cv2.putText(img, "orig fps: " + str(fps), (10, height - 90), font, 1.0, color, 2)
-        img = cv2.putText(img, "virtual fps: " + str(virtual_fps), (10, height - 60), font, 1.0, color, 2,)
+        img = cv2.putText(img, "virtual fps: " + str(virtual_fps), (10, height - 60), font, 1.0, color, 2, )
         img = cv2.putText(img, "#" + str(j), (10, height - 30), font, 1.0, color, 2)
 
         vizu = np.concatenate([viz_flow_fw[None], viz_flow_bw[None], img[None]])
@@ -62,18 +64,19 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
 
 
 def main_video(
-    video_filename,
-    out_name="",
-    video_fps=240,
-    height=-1,
-    width=-1,
-    sf=-1,
-    seek_frame=0,
-    max_frames=-1,
-    lambda_flow=0.5,
-    cuda=True,
-    viz=False,
-    checkpoint='SuperSloMo.ckpt'
+        video_filename,
+        out_name="",
+        video_fps=240,
+        height=-1,
+        width=-1,
+        sf=-1,
+        seek_frame=0,
+        max_frames=-1,
+        lambda_flow=0.5,
+        cuda=True,
+        viz=False,
+        checkpoint='SuperSloMo.ckpt',
+        crf=1
 ):
     """SlowMo Interpolates video
     It produces another .mp4 video + .npy file for timestamps.
@@ -95,7 +98,7 @@ def main_video(
 
     print("Out Video: ", out_name)
 
-    if isinstance(video_filename,list):
+    if isinstance(video_filename, list):
         # video_filename is a list of images
         print("First image of the list: ", video_filename[0])
         im = Image.open(video_filename[0])
@@ -130,13 +133,18 @@ def main_video(
     num_video = 0
 
     if out_name:
-        video_writer = FFmpegWriter(out_name)
+        video_writer = FFmpegWriter(out_name, outputdict={
+            '-vcodec': 'libx264',  # use the h.264 codec
+            '-crf': str(crf),  # set the constant rate factor to 0, which is lossless
+            #'-preset': 'veryslow'  # the slower the better compression, in princple, try
+            # other options see https://trac.ffmpeg.org/wiki/Encode/H.264
+        })
 
     last_ts = 0
     for i, frame in enumerate(tqdm(stream)):
-        if isinstance(frame,str):
-            frame = cv2.imread(frame)[:,:,::-1]
-            assert frame.shape[2]==3
+        if isinstance(frame, str):
+            frame = cv2.imread(frame)[:, :, ::-1]
+            assert frame.shape[2] == 3
 
         ts = i * delta_t
 
@@ -179,21 +187,23 @@ def main_video(
         timestamps_out = np.concatenate(timestamps)
         np.save(os.path.splitext(out_name)[0] + "_ts.npy", timestamps_out)
 
+
 def main(
-    input_path,
-    output_path,
-    video_fps=240,
-    height=-1,
-    width=-1,
-    sf=-1,
-    seek_frame=0,
-    max_frames=-1,
-    lambda_flow=0.5,
-    cuda=True,
-    viz=False,
-    checkpoint='SuperSloMo.ckpt'):
+        input_path,
+        output_path,
+        video_fps=240,
+        height=-1,
+        width=-1,
+        sf=-1,
+        seek_frame=0,
+        max_frames=-1,
+        lambda_flow=0.5,
+        cuda=True,
+        viz=False,
+        checkpoint='SuperSloMo.ckpt'):
     """Same Documentation, just with additional input directory"""
-    main_fun = lambda x,y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz, checkpoint)
+    main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz,
+                                       checkpoint)
     wsf = str(sf) if sf > 0 else "asynchronous"
     print('Interpolation frame_rate factor: ', wsf)
     if os.path.isdir(input_path):
