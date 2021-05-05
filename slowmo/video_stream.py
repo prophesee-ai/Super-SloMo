@@ -123,10 +123,13 @@ class VideoStream(object):
         ret, frame = self.cap.read()
 
         if ret:
-            if not self.rgb:
+            if self.rgb:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            else:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             frame = cv2.resize(frame, (self.width, self.height), 0, 0, cv2.INTER_AREA)
-
+        else:
+            print('error reading the frame')
         return ret, frame
 
     def __iter__(self):

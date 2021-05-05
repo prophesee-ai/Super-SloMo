@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-import model
+from slowmo import model
 
 
 class SlowMoWarp:

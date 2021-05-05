@@ -11,11 +11,11 @@ import torch.nn.functional as F
 import numpy as np
 import cv2
 from skvideo.io import FFmpegWriter
-
-from video_stream import VideoStream
-from slowmo_warp import SlowMoWarp
-from viz import draw_arrows
-from utils import grab_videos
+from PIL import Image
+from slowmo.video_stream import VideoStream
+from slowmo.slowmo_warp import SlowMoWarp
+from slowmo.viz import draw_arrows
+from slowmo.utils import grab_videos
 
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -23,7 +23,6 @@ from tqdm import tqdm
 
 def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
     """SlowMo visualization
-
     Args:
         last_frame: prev rgb frame (h,w,3)
         current_frame: current rgb frame (h,w,3)
@@ -32,10 +31,12 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
         interp: last_frame + interpolated frames
         fps: current frame-rate
     """
+
     def viz_flow(frame, flow):
         flow1 = flow.data.cpu().numpy()
         frame0 = draw_arrows(frame, flow1[0], step=16, flow_unit="pixels")
         return frame0
+
     color = (0, 0, 255)
     font = cv2.FONT_HERSHEY_SIMPLEX
     height, width = interp[0].shape[:2]
@@ -47,7 +48,7 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
         img = item.copy()
 
         img = cv2.putText(img, "orig fps: " + str(fps), (10, height - 90), font, 1.0, color, 2)
-        img = cv2.putText(img, "virtual fps: " + str(virtual_fps), (10, height - 60), font, 1.0, color, 2,)
+        img = cv2.putText(img, "virtual fps: " + str(virtual_fps), (10, height - 60), font, 1.0, color, 2, )
         img = cv2.putText(img, "#" + str(j), (10, height - 30), font, 1.0, color, 2)
 
         vizu = np.concatenate([viz_flow_fw[None], viz_flow_bw[None], img[None]])
@@ -63,25 +64,24 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
 
 
 def main_video(
-    video_filename,
-    out_name="",
-    video_fps=240,
-    height=-1,
-    width=-1,
-    sf=-1,
-    seek_frame=0,
-    max_frames=-1,
-    lambda_flow=0.5,
-    cuda=True,
-    viz=False,
-    checkpoint='SuperSloMo.ckpt'
+        video_filename,
+        out_name="",
+        video_fps=240,
+        height=-1,
+        width=-1,
+        sf=-1,
+        seek_frame=0,
+        max_frames=-1,
+        lambda_flow=0.5,
+        cuda=True,
+        viz=False,
+        checkpoint='SuperSloMo.ckpt',
+        crf=1
 ):
     """SlowMo Interpolates video
-
     It produces another .mp4 video + .npy file for timestamps.
-
     Args:
-        video_filename: file path
+        video_filename: file path or list of ordered frame images
         out_name: out file path
         video_fps: video frame rate
         height: desired height
@@ -95,18 +95,26 @@ def main_video(
         viz: visualize the flow and interpolated frames
         checkpoint: if not provided will download it
     """
-    print("Video filename: ", video_filename)
+
     print("Out Video: ", out_name)
 
-    stream = VideoStream(
-        video_filename,
-        height,
-        width,
-        seek_frame=seek_frame,
-        max_frames=max_frames,
-        random_start=False,
-        rgb=True)
-    height, width = stream.height, stream.width
+    if isinstance(video_filename, list):
+        # video_filename is a list of images
+        print("First image of the list: ", video_filename[0])
+        im = Image.open(video_filename[0])
+        width, height = im.size
+        stream = video_filename
+    else:
+        print("Video filename: ", video_filename)
+        stream = VideoStream(
+            video_filename,
+            height,
+            width,
+            seek_frame=seek_frame,
+            max_frames=max_frames,
+            random_start=False,
+            rgb=True)
+        height, width = stream.height, stream.width
 
     slomo = SlowMoWarp(height, width, checkpoint, lambda_flow=lambda_flow, cuda=cuda)
 
@@ -125,10 +133,19 @@ def main_video(
     num_video = 0
 
     if out_name:
-        video_writer = FFmpegWriter(out_name)
+        video_writer = FFmpegWriter(out_name, outputdict={
+            '-vcodec': 'libx264',  # use the h.264 codec
+            '-crf': str(crf),  # set the constant rate factor to 0, which is lossless
+            #'-preset': 'veryslow'  # the slower the better compression, in princple, try
+            # other options see https://trac.ffmpeg.org/wiki/Encode/H.264
+        })
 
     last_ts = 0
     for i, frame in enumerate(tqdm(stream)):
+        if isinstance(frame, str):
+            frame = cv2.imread(frame)[:, :, ::-1]
+            assert frame.shape[2] == 3
+
         ts = i * delta_t
 
         if last_frame is not None:
@@ -149,7 +166,7 @@ def main_video(
 
             if out_name:
                 for item in interp:
-                    video_writer.writeFrame(item[..., ::-1])
+                    video_writer.writeFrame(item)
 
             timestamps.append(interp_ts)
 
@@ -170,21 +187,23 @@ def main_video(
         timestamps_out = np.concatenate(timestamps)
         np.save(os.path.splitext(out_name)[0] + "_ts.npy", timestamps_out)
 
+
 def main(
-    input_path,
-    output_path,
-    video_fps=240,
-    height=-1,
-    width=-1,
-    sf=-1,
-    seek_frame=0,
-    max_frames=-1,
-    lambda_flow=0.5,
-    cuda=True,
-    viz=False,
-    checkpoint='SuperSloMo.ckpt'):
+        input_path,
+        output_path,
+        video_fps=240,
+        height=-1,
+        width=-1,
+        sf=-1,
+        seek_frame=0,
+        max_frames=-1,
+        lambda_flow=0.5,
+        cuda=True,
+        viz=False,
+        checkpoint='SuperSloMo.ckpt'):
     """Same Documentation, just with additional input directory"""
-    main_fun = lambda x,y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz, checkpoint)
+    main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz,
+                                       checkpoint)
     wsf = str(sf) if sf > 0 else "asynchronous"
     print('Interpolation frame_rate factor: ', wsf)
     if os.path.isdir(input_path):
