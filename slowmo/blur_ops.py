@@ -9,10 +9,10 @@ from numba import cuda
 
 def blur_from_flow(img, flow, bilinear=True, pad_reflect=True):
     """
-    img: (H,W) tensor (we will complexify later)
+    img: (H,W,3) tensor (we will complexify later)
     flow: (H,W,2) tensor
     """
-    height, width = img.shape
+    height, width = img.shape[:2]
     out = torch.zeros_like(img)
     device = img.device
     on_gpu = 'cuda' in str(device)
@@ -39,8 +39,9 @@ def _cpu_kernel_blur_from_flow(img, out, flow, bilinear, pad_reflect, f=2):
             mag = math.ceil(math.sqrt(u**2 + v**2))
 
             n = max(1, int(f*mag))
+            for c in range(3):
+                out[y,x,c] = img[y,x,c] / n
 
-            value = img[y, x] / n
             for i in range(1, n):
                 ux = x - u / n * i
                 uy = y - v / n * i
@@ -80,19 +81,20 @@ def _cpu_kernel_blur_from_flow(img, out, flow, bilinear, pad_reflect, f=2):
                                 else:
                                     continue
                             weight = (1-abs(lim_x-ux)) * (1-abs(lim_y-uy))
-                            value += img[lim_y, lim_x] * weight / n
+                            for c in range(3):
+                                out[y,x,c] += img[lim_y, lim_x, c] * weight / n
                 else:
                     lim_y = round(uy)
                     lim_x = round(ux)
-                    value += img[lim_y, lim_x] / n
+                    for c in range(3):
+                        out[y,x,c] += img[lim_y, lim_x, c] / n
 
-            out[y, x] = value
 
 
 @cuda.jit()
 def _cuda_kernel_blur_from_flow(img, out, flow, bilinear, pad_reflect, f=2):
     y, x = cuda.grid(2)
-    height, width = img.shape
+    height, width = img.shape[:2]
     if y < height and x < width:
         """
         go in reverse of the flow line & select 4 neighbors with
@@ -103,8 +105,9 @@ def _cuda_kernel_blur_from_flow(img, out, flow, bilinear, pad_reflect, f=2):
 
         n = int(f*mag)
         n = max(1, n)
+        for c in range(3):
+            out[y,x,c] = img[y,x,c] / n
 
-        value = img[y, x] / n
         for i in range(1, n):
             ux = x - u / n * i
             uy = y - v / n * i
@@ -144,10 +147,10 @@ def _cuda_kernel_blur_from_flow(img, out, flow, bilinear, pad_reflect, f=2):
                             else:
                                 continue
                         weight = (1-abs(lim_x-ux)) * (1-abs(lim_y-uy))
-                        value += img[lim_y, lim_x] * weight / n
+                        for c in range(3):
+                            out[y,x,c] += img[lim_y, lim_x, c] * weight / n
             else:
                 lim_y = round(uy)
                 lim_x = round(ux)
-                value += img[lim_y, lim_x] / n
-
-        out[y, x] = value
+                for c in range(3):
+                    out[y,x,c] += img[lim_y, lim_x, c] / n

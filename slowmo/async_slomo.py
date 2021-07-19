@@ -16,9 +16,16 @@ from slowmo.video_stream import VideoStream
 from slowmo.slowmo_warp import SlowMoWarp
 from slowmo.viz import draw_arrows
 from slowmo.utils import grab_videos
+from slowmo.blur_ops import blur_from_flow
 
 from torchvision.utils import make_grid
 from tqdm import tqdm
+
+
+def viz_diff(im1, im2):
+    diff = im1.astype(np.float32)-im2
+    diff = (diff-diff.min())/(diff.max()-diff.min())
+    return (diff*255).astype(np.uint8)
 
 
 def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
@@ -56,7 +63,7 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
         vizu = torch.from_numpy(vizu).permute(0, 3, 1, 2).contiguous()
         vizu = make_grid(vizu, nrow=2).permute(1, 2, 0).contiguous().numpy()
 
-        cv2.imshow("result", vizu)
+        cv2.imshow("result", vizu[...,::-1])
         key = cv2.waitKey(5)
         if key == 27:
             return 0
@@ -74,7 +81,8 @@ def main_video(
         max_frames=-1,
         lambda_flow=0.5,
         cuda=True,
-        viz=False,
+        viz_blur=False,
+        viz_flow=False,
         checkpoint='SuperSloMo.ckpt',
         crf=1
 ):
@@ -95,7 +103,6 @@ def main_video(
         viz: visualize the flow and interpolated frames
         checkpoint: if not provided will download it
     """
-
     print("Out Video: ", out_name)
 
     if isinstance(video_filename, list):
@@ -146,6 +153,10 @@ def main_video(
             frame = cv2.imread(frame)[:, :, ::-1]
             assert frame.shape[2] == 3
 
+        #show large motion
+        if i%10 != 0:
+            continue
+
         ts = i * delta_t
 
         if last_frame is not None:
@@ -157,6 +168,21 @@ def main_video(
                 out = slomo.forward(last_frame, frame, sf=sf)
 
             interp = [last_frame] + out["interpolated"]
+            print('sf: ', out['sf'])
+
+            # compare blur of averaging to blur by custom operation
+            base_blur = sum(([item.astype(np.float32) for item in interp]))/len(interp)
+            base_blur = base_blur.astype(np.uint8)
+            fw_flow = out['flow'][0][0].permute(1,2,0).contiguous()
+            bw_flow = out['flow'][1][0].permute(1,2,0).contiguous()
+            last_frame_th = torch.from_numpy(last_frame).to(fw_flow)
+            frame_th = torch.from_numpy(frame).float().to(fw_flow)
+            fw_custom_blur = blur_from_flow(last_frame_th, fw_flow)
+            bw_custom_blur = blur_from_flow(frame_th, bw_flow)
+            custom_blur = (fw_custom_blur + bw_custom_blur)/2
+            custom_blur = custom_blur.detach().cpu().numpy().astype(np.uint8)
+
+
             dt = (t_end - t_start) / len(interp)
             interp_ts = np.linspace(t_start, t_end - dt, len(interp))
 
@@ -170,7 +196,13 @@ def main_video(
 
             timestamps.append(interp_ts)
 
-            if viz:
+            if viz_blur:
+                diff = viz_diff(base_blur, custom_blur)
+                cat = np.concatenate((base_blur, custom_blur, diff), axis=1)
+                cv2.imshow('blurs', cat[...,::-1])
+                cv2.waitKey(0)
+
+            if viz_flow:
                 key = show_slowmo(last_frame, frame, *out['flow'], interp, fps)
                 if key == 0:
                     break
@@ -199,11 +231,11 @@ def main(
         max_frames=-1,
         lambda_flow=0.5,
         cuda=True,
-        viz=False,
+        viz_blur=False,
+        viz_flow=False,
         checkpoint='SuperSloMo.ckpt'):
     """Same Documentation, just with additional input directory"""
-    main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz,
-                                       checkpoint)
+    main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz_blur, viz_flow, checkpoint)
     wsf = str(sf) if sf > 0 else "asynchronous"
     print('Interpolation frame_rate factor: ', wsf)
     if os.path.isdir(input_path):
