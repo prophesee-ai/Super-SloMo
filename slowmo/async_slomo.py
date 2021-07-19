@@ -154,7 +154,7 @@ def main_video(
             assert frame.shape[2] == 3
 
         #show large motion
-        if i%10 != 0:
+        if i%40 != 0:
             continue
 
         ts = i * delta_t
