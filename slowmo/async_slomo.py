@@ -192,13 +192,17 @@ def main_video(
 
             # compare interp_from_flow to slowmo interpolation
             out_fw = interp_from_flow(last_frame_th, fw_flow, len(interp))
+            out_bw = interp_from_flow(frame_th, bw_flow, len(interp))
+            out_bw= torch.flip(out_bw, dims=[0])
+            out_interp = (out_fw + out_bw)/2
 
             for i in range(len(interp)):
                 im_slomo = interp[i]
-                im_flow = out_fw[i].cpu().detach().numpy().astype(np.uint8)
-                cat = np.concatenate((im_slomo, im_flow), axis=1)
-                cv2.imshow('slowmo/flow', cat[...,::-1])
-                cv2.waitKey()
+                im_flow = out_interp[i].cpu().detach().numpy().astype(np.uint8)
+                im_diff = viz_diff(im_slomo, im_flow)
+                cat = np.concatenate((im_slomo, im_flow, im_diff), axis=1)
+                cv2.imshow('slowmo/flow/im_diff', cat[...,::-1])
+                cv2.waitKey(5)
 
 
             dt = (t_end - t_start) / len(interp)
