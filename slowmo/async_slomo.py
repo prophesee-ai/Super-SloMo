@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 import cv2
+import time
 from skvideo.io import FFmpegWriter
 from PIL import Image
 from slowmo.video_stream import VideoStream
@@ -17,6 +18,7 @@ from slowmo.slowmo_warp import SlowMoWarp
 from slowmo.viz import draw_arrows
 from slowmo.utils import grab_videos
 from slowmo.blur_ops import blur_from_flow
+from slowmo.interp_ops import interp_from_flow
 
 from torchvision.utils import make_grid
 from tqdm import tqdm
@@ -26,6 +28,10 @@ def viz_diff(im1, im2):
     diff = im1.astype(np.float32)-im2
     diff = (diff-diff.min())/(diff.max()-diff.min())
     return (diff*255).astype(np.uint8)
+
+def cutime():
+    torch.cuda.synchronize()
+    return time.time()
 
 
 def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
@@ -154,7 +160,7 @@ def main_video(
             assert frame.shape[2] == 3
 
         #show large motion
-        if i%40 != 0:
+        if i%10 != 0:
             continue
 
         ts = i * delta_t
@@ -170,17 +176,29 @@ def main_video(
             interp = [last_frame] + out["interpolated"]
             print('sf: ', out['sf'])
 
-            # compare blur of averaging to blur by custom operation
-            base_blur = sum(([item.astype(np.float32) for item in interp]))/len(interp)
-            base_blur = base_blur.astype(np.uint8)
+            # This branch: feature/blur_from_flow
             fw_flow = out['flow'][0][0].permute(1,2,0).contiguous()
             bw_flow = out['flow'][1][0].permute(1,2,0).contiguous()
             last_frame_th = torch.from_numpy(last_frame).to(fw_flow)
             frame_th = torch.from_numpy(frame).float().to(fw_flow)
-            fw_custom_blur = blur_from_flow(last_frame_th, fw_flow)
-            bw_custom_blur = blur_from_flow(frame_th, bw_flow)
-            custom_blur = (fw_custom_blur + bw_custom_blur)/2
-            custom_blur = custom_blur.detach().cpu().numpy().astype(np.uint8)
+
+            # compare blur of averaging to blur by custom operation
+            # base_blur = sum(([item.astype(np.float32) for item in interp]))/len(interp)
+            # base_blur = base_blur.astype(np.uint8)
+            # fw_custom_blur = blur_from_flow(last_frame_th, fw_flow)
+            # bw_custom_blur = blur_from_flow(frame_th, bw_flow)
+            # custom_blur = (fw_custom_blur + bw_custom_blur)/2
+            # custom_blur = custom_blur.detach().cpu().numpy().astype(np.uint8)
+
+            # compare interp_from_flow to slowmo interpolation
+            out_fw = interp_from_flow(last_frame_th, fw_flow, len(interp))
+
+            for i in range(len(interp)):
+                im_slomo = interp[i]
+                im_flow = out_fw[i].cpu().detach().numpy().astype(np.uint8)
+                cat = np.concatenate((im_slomo, im_flow), axis=1)
+                cv2.imshow('slowmo/flow', cat[...,::-1])
+                cv2.waitKey()
 
 
             dt = (t_end - t_start) / len(interp)
@@ -196,11 +214,11 @@ def main_video(
 
             timestamps.append(interp_ts)
 
-            if viz_blur:
-                diff = viz_diff(base_blur, custom_blur)
-                cat = np.concatenate((base_blur, custom_blur, diff), axis=1)
-                cv2.imshow('blurs', cat[...,::-1])
-                cv2.waitKey(0)
+            # if viz_blur:
+            #     diff = viz_diff(base_blur, custom_blur)
+            #     cat = np.concatenate((base_blur, custom_blur, diff), axis=1)
+            #     cv2.imshow('blurs', cat[...,::-1])
+            #     cv2.waitKey(0)
 
             if viz_flow:
                 key = show_slowmo(last_frame, frame, *out['flow'], interp, fps)
@@ -211,7 +229,7 @@ def main_video(
 
         last_frame = frame.copy()
 
-    if viz:
+    if viz_flow:
         cv2.destroyWindow("result")
 
     if out_name:

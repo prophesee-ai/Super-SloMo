@@ -16,7 +16,7 @@ def interp_from_flow(img, flow, n, bilinear=True, pad_reflect=True):
     n: n images interpolation
     """
     height, width = img.shape[:2]
-    out = torch.zeros((n,h,w,c), dtype=img.dtype, device=img.device)
+    out = torch.zeros((n,height,width,3), dtype=img.dtype, device=img.device)
     device = img.device
     on_gpu = 'cuda' in str(device)
 
@@ -83,7 +83,7 @@ def _cpu_kernel_interp_from_flow(img, out, flow, bilinear, pad_reflect, n):
                                     continue
                             weight = (1-abs(lim_x-ux)) * (1-abs(lim_y-uy))
                             for c in range(3):
-                                out[i,y,x,c] = img[lim_y, lim_x, c] * weight
+                                out[i,y,x,c] += img[lim_y, lim_x, c] * weight
                 else:
                     lim_y = round(uy)
                     lim_x = round(ux)
@@ -146,9 +146,9 @@ def _cuda_kernel_interp_from_flow(img, out, flow, bilinear, pad_reflect, n):
                                 continue
                         weight = (1-abs(lim_x-ux)) * (1-abs(lim_y-uy))
                         for c in range(3):
-                            out[i,y,x,c] = img[lim_y, lim_x, c] * weight
+                            out[i,y,x,c] += img[lim_y, lim_x, c] * weight
             else:
                 lim_y = round(uy)
                 lim_x = round(ux)
                 for c in range(3):
-                    out[i,y,x,c] += img[lim_y, lim_x, c]
+                    out[i,y,x,c] = img[lim_y, lim_x, c]
