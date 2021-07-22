@@ -64,7 +64,6 @@ def _cpu_kernel_interp_from_flow(img, out, flow, bilinear, pad_reflect, n):
                         continue
 
                 if bilinear:
-                    sweight = 0
                     for lim_y in (math.floor(uy), math.ceil(uy)):
                         for lim_x in (math.floor(ux), math.ceil(ux)):
                             lim_y = int(lim_y)
