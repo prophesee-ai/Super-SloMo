@@ -35,13 +35,13 @@ def interp_from_flow(img, flow, n, bilinear=True, pad_reflect=True):
 
 @numba.jit
 def _cpu_kernel_interp_from_flow(img, out, flow, bilinear, pad_reflect, n):
-    height, width = img.shape
+    height, width = img.shape[:2]
     for y in range(height):
         for x in range(width):
             u, v = flow[y, x, 0], flow[y, x, 1]
 
             for c in range(3):
-                out[y,x,c] = img[0,y,x,c]
+                out[0,y,x,c] = img[y,x,c]
 
             for i in range(1, n):
                 ux = x - u / n * i
@@ -49,39 +49,42 @@ def _cpu_kernel_interp_from_flow(img, out, flow, bilinear, pad_reflect, n):
 
                 # we need a padding strategy
                 # (reflect for instance if x > width => x' = width-x)
-                if ux < 0 or ux >= width or uy < 0 or uy >= height:
-                    if pad_reflect:
-                        if ux < 0:
-                            ux = abs(ux)
-                        elif ux >= width:
-                            ux = 2*(width)-ux-1
+                if pad_reflect:
+                    if ux < 0:
+                        ux = abs(ux)
+                    elif ux >= width-1:
+                        ux = 2*(width)-ux-2
 
-                        if uy < 0:
-                            uy = abs(uy)
-                        elif uy >= height:
-                            uy = 2*(height)-uy-1
-                    else:
+                    if uy < 0:
+                        uy = abs(uy)
+                    elif uy >= height-1:
+                        uy = 2*(height)-uy-2
+                else:
+                    if ux < 0 or ux >= width-1 or uy < 0 or uy >= height-1:
                         continue
 
                 if bilinear:
+                    sweight = 0
                     for lim_y in (math.floor(uy), math.ceil(uy)):
                         for lim_x in (math.floor(ux), math.ceil(ux)):
                             lim_y = int(lim_y)
                             lim_x = int(lim_x)
-                            if lim_y >= height or lim_x >= width:
-                                if pad_reflect:
-                                    if lim_x < 0:
-                                        lim_x = abs(lim_x)
-                                    elif lim_x >= width:
-                                        lim_x = 2*(width)-lim_x-1
 
-                                    if lim_y < 0:
-                                        lim_y = abs(lim_y)
-                                    elif lim_y >= height:
-                                        lim_y = 2*(height)-lim_y-1
-                                else:
-                                    continue
-                            weight = (1-abs(lim_x-ux)) * (1-abs(lim_y-uy))
+                            if pad_reflect:
+                                if lim_x < 0:
+                                    lim_x = abs(lim_x)
+                                elif lim_x >= width:
+                                    lim_x = 2*(width)-lim_x-2
+
+                                if lim_y < 0:
+                                    lim_y = abs(lim_y)
+                                elif lim_y >= height:
+                                    lim_y = 2*(height)-lim_y-2
+                            else:
+                                continue
+
+                            weight = max(0, (1-abs(lim_x-ux))) * max(0, (1-abs(lim_y-uy)))
+                            assert weight >= 0
                             for c in range(3):
                                 out[i,y,x,c] += img[lim_y, lim_x, c] * weight
                 else:
@@ -112,18 +115,18 @@ def _cuda_kernel_interp_from_flow(img, out, flow, bilinear, pad_reflect, n):
 
             # we need a padding strategy
             # (reflect for instance if x > width => x' = width-x)
-            if ux < 0 or ux >= width or uy < 0 or uy >= height:
-                if pad_reflect:
-                    if ux < 0:
-                        ux = abs(ux)
-                    elif ux >= width:
-                        ux = 2*width-1-ux
+            if pad_reflect:
+                if ux < 0:
+                    ux = abs(ux)
+                elif ux >= width-1:
+                    ux = 2*(width)-ux-2
 
-                    if uy < 0:
-                        uy = abs(uy)
-                    elif uy >= height:
-                        uy = 2*height-1-uy
-                else:
+                if uy < 0:
+                    uy = abs(uy)
+                elif uy >= height-1:
+                    uy = 2*(height)-uy-2
+            else:
+                if ux < 0 or ux >= width-1 or uy < 0 or uy >= height-1:
                     continue
 
             if bilinear:
@@ -131,20 +134,21 @@ def _cuda_kernel_interp_from_flow(img, out, flow, bilinear, pad_reflect, n):
                     for lim_x in (math.floor(ux), math.ceil(ux)):
                         lim_y = int(lim_y)
                         lim_x = int(lim_x)
-                        if lim_y >= height or lim_x >= width:
-                            if pad_reflect:
-                                if lim_x < 0:
-                                    lim_x = abs(lim_x)
-                                elif ux >= width:
-                                    lim_x = 2*width-1-lim_x
+                        if pad_reflect:
+                            if lim_x < 0:
+                                lim_x = abs(lim_x)
+                            elif ux >= width:
+                                lim_x = 2*width-2-lim_x
 
-                                if lim_y < 0:
-                                    lim_y = abs(lim_y)
-                                elif lim_y >= height:
-                                    lim_y = 2*height-1-lim_y
-                            else:
-                                continue
-                        weight = (1-abs(lim_x-ux)) * (1-abs(lim_y-uy))
+                            if lim_y < 0:
+                                lim_y = abs(lim_y)
+                            elif lim_y >= height:
+                                lim_y = 2*height-2-lim_y
+                        else:
+                            continue
+
+                        weight = max(0, (1-abs(lim_x-ux))) * max(0, (1-abs(lim_y-uy)))
+                        assert weight >= 0
                         for c in range(3):
                             out[i,y,x,c] += img[lim_y, lim_x, c] * weight
             else:
