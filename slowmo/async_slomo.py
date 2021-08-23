@@ -200,7 +200,8 @@ def main(
         lambda_flow=0.5,
         cuda=True,
         viz=False,
-        checkpoint='SuperSloMo.ckpt'):
+        checkpoint='SuperSloMo.ckpt',
+        rewrite=True):
     """Same Documentation, just with additional input directory"""
     main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz,
                                        checkpoint)
@@ -210,9 +211,10 @@ def main(
         assert os.path.isdir(output_path)
         filenames = grab_videos(input_path)
         for item in filenames:
+            ext = os.path.splitext(item)[1]
             otem, _ = os.path.splitext(os.path.basename(item))
-            otem = os.path.join(odir, otem + ext)
-            if os.path.exists(otem):
+            otem = os.path.join(output_path, otem + ext)
+            if os.path.exists(otem) and not rewrite:
                 continue
             main_fun(item, otem)
     else:
