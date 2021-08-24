@@ -133,6 +133,7 @@ def main_video(
     num_video = 0
 
     if out_name:
+        print('Video: ', out_name, ' crf: ', crf)
         video_writer = FFmpegWriter(out_name, outputdict={
             '-vcodec': 'libx264',  # use the h.264 codec
             '-crf': str(crf),  # set the constant rate factor to 0, which is lossless
@@ -201,10 +202,10 @@ def main(
         cuda=True,
         viz=False,
         checkpoint='SuperSloMo.ckpt',
+        crf=1,
         rewrite=True):
     """Same Documentation, just with additional input directory"""
-    main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz,
-                                       checkpoint)
+    main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz, checkpoint, crf)
     wsf = str(sf) if sf > 0 else "asynchronous"
     print('Interpolation frame_rate factor: ', wsf)
     if os.path.isdir(input_path):
