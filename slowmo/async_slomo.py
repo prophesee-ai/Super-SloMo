@@ -51,12 +51,9 @@ def show_slowmo(last_frame, frame, flow_fw, flow_bw, interp, fps):
         img = cv2.putText(img, "virtual fps: " + str(virtual_fps), (10, height - 60), font, 1.0, color, 2, )
         img = cv2.putText(img, "#" + str(j), (10, height - 30), font, 1.0, color, 2)
 
-        vizu = np.concatenate([viz_flow_fw[None], viz_flow_bw[None], img[None]])
+        vizu = np.concatenate((viz_flow_fw, img, viz_flow_bw), axis=1)
 
-        vizu = torch.from_numpy(vizu).permute(0, 3, 1, 2).contiguous()
-        vizu = make_grid(vizu, nrow=2).permute(1, 2, 0).contiguous().numpy()
-
-        cv2.imshow("result", vizu)
+        cv2.imshow("flow_fw/interp/flow_bw", vizu[..., ::-1])
         key = cv2.waitKey(5)
         if key == 27:
             return 0
@@ -137,7 +134,7 @@ def main_video(
         video_writer = FFmpegWriter(out_name, outputdict={
             '-vcodec': 'libx264',  # use the h.264 codec
             '-crf': str(crf),  # set the constant rate factor to 0, which is lossless
-            #'-preset': 'veryslow'  # the slower the better compression, in princple, try
+            # '-preset': 'veryslow'  # the slower the better compression, in princple, try
             # other options see https://trac.ffmpeg.org/wiki/Encode/H.264
         })
 
@@ -205,7 +202,8 @@ def main(
         crf=1,
         rewrite=True):
     """Same Documentation, just with additional input directory"""
-    main_fun = lambda x, y: main_video(x, y, video_fps, height, width, sf, seek_frame, max_frames, lambda_flow, cuda, viz, checkpoint, crf)
+    def main_fun(x, y): return main_video(x, y, video_fps, height, width, sf,
+                                          seek_frame, max_frames, lambda_flow, cuda, viz, checkpoint, crf)
     wsf = str(sf) if sf > 0 else "asynchronous"
     print('Interpolation frame_rate factor: ', wsf)
     if os.path.isdir(input_path):
@@ -220,8 +218,6 @@ def main(
             main_fun(item, otem)
     else:
         main_fun(input_path, output_path)
-
-
 
 
 if __name__ == "__main__":
