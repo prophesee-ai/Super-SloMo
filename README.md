@@ -25,4 +25,4 @@ After running the script, you should see 2 files per video:
 - output.mp4
 - output_ts.npy
 
-This can then be used by our event-based simulator available in the [Professional Offer](https://www.prophesee.ai/metavision-intelligence-professional-request) of [Metavision Intelligence](https://www.prophesee.ai/metavision-intelligence).
+This can then be used by our event-based simulator available with [Metavision Intelligence](https://www.prophesee.ai/metavision-intelligence/).
