@@ -89,22 +89,22 @@ class VideoStream(object):
         self.cap = cv2.VideoCapture(video_filename)
 
         if self.random_start:
-            num_frames = int(self.cap.get(cv2.cv2.CAP_PROP_FRAME_COUNT))
+            num_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
             seek_frame = random.randint(0, num_frames // 2)
             if seek_frame > 0:
-                self.cap.set(cv2.cv2.CAP_PROP_POS_FRAMES, seek_frame)
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, seek_frame)
         else:
             seek_frame = 0 if seek_frame == -1 else seek_frame
             if seek_frame > 0:
-                self.cap.set(cv2.cv2.CAP_PROP_POS_FRAMES, seek_frame)
+                self.cap.set(cv2.CAP_PROP_POS_FRAMES, seek_frame)
         self.start = seek_frame
         if self.height == -1 or self.width == -1:
             self.height, self.width = self.original_size()
 
     def original_size(self):
         height, width = (
-            self.cap.get(cv2.cv2.CAP_PROP_FRAME_HEIGHT),
-            self.cap.get(cv2.cv2.CAP_PROP_FRAME_WIDTH),
+            self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT),
+            self.cap.get(cv2.CAP_PROP_FRAME_WIDTH),
         )
         return int(height), int(width)
 
@@ -112,7 +112,7 @@ class VideoStream(object):
         if self.max_frames > -1:
             return self.max_frames
         else:
-            num_frames = int(self.cap.get(cv2.cv2.CAP_PROP_FRAME_COUNT))
+            num_frames = int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT))
             return num_frames - self.start
 
     def __next__(self):

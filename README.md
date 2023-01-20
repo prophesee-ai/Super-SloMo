@@ -7,7 +7,12 @@ So far you can use the same model trained on [adobe240fps dataset by avinashpali
 ## Asynchronous Video Converter
 This addon allows to create a video with motion-dependant interpolation. This means it will produce more or less frames dependently on maximum optical flow between 2 frames.
 
-You can run the main tool for one video:
+Be sure the repo is in your PYTHONPATH. For example:
+```bash
+export PYTHONPATH=$PYTHONPATH:path\to\repo\Super-SloMo/:
+```
+
+Now, you can run the main tool for one video:
 ```bash
 python async_slomo.py path\to\video.mp4 path\to\output.mp4 --sf -1 --checkpoint path\to\checkpoint.ckpt --video_fps M --lambda_flow 0.5 --viz 1
 ```
